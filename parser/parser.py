@@ -9,7 +9,7 @@ from selenium.common.exceptions import TimeoutException
 from urllib3.exceptions import ReadTimeoutError
 import time
 import random
-
+import re
 
 options = webdriver.ChromeOptions() #создаем webdriver
 options.page_load_strategy = "eager" #добавляем настройку в драйвер, чтобы не дожидаться полной подгрузки сайта(сайт долго грузиться, поэтому selenium простаивает)
@@ -17,6 +17,21 @@ options.add_argument("--ignore-certificate-errors --allow-insecure-localhost")
 service = Service(executable_path=ChromeDriverManager().install()) # Service для инициализации, он устанавливает, создаёт и удаляет драйвер
 driver = webdriver.Chrome(service=service, options=options) # Chrome будет управляться service'ом
 driver.command_executor.set_timeout(1000)
+
+def add_empty_dates(text):
+    dates = re.findall(r"(submission|revised|accepted|published).*?:\s*((?:\d{1,2}\s+[A-Za-z]+\s+\d{4})?)", text, re.IGNORECASE)
+
+    date_dict = {}
+    for label, date_str in dates:
+      date_dict[label.lower()] = date_str.strip() if date_str else ""
+
+    submission_date = date_dict.get('submission', '')
+    revised_date = date_dict.get('revised', '')
+    accepted_date = date_dict.get('accepted', '')
+    published_date = date_dict.get('published', '')
+
+
+    return submission_date,revised_date,accepted_date,published_date
 
 root = ET.Element("articles")
 k = 0
@@ -47,13 +62,17 @@ for num in range(1, 107): #перебираем все страницы с ст�
         current_url = driver.current_url #переменная с ссылкой на страницу
         title = driver.find_element(By.CSS_SELECTOR, ".title.hypothesis_container").text #по css селектору находим заголовок статьи
         date = driver.find_element(By.CSS_SELECTOR, ".pubhistory").text #по css селектору находим даты статьи
-        dates_list = date.split('/')
-        res_dates_list = []
-        while len(dates_list) < 4:
-            dates_list.append('')
-        for i in dates_list:
-            res_dates_list.append(i[i.find(':')+2:])
-        submission, revised, accepted, published = dates_list #разбиваем даты по переменным
+
+        # dates_list = date.split('/')
+        # print(dates_list)
+        # res_dates_list = []
+        # while len(dates_list) < 4:
+        #     dates_list.append('')
+        # for i in dates_list:
+        #     res_dates_list.append(i[i.find(':')+2:])
+        
+        submission, revised, accepted, published = add_empty_dates(date)
+        print(submission, revised, accepted, published)
         authors_list = driver.find_elements(By.CSS_SELECTOR, ".profile-card-drop") #по css селектору находим авторов
         authors = []
         for i in authors_list:
@@ -67,7 +86,9 @@ for num in range(1, 107): #перебираем все страницы с ст�
             res_keywords = []
         else:
             str_keywords = keywords_list[0]
-            res_keywords = str_keywords[9:].split(";")
+            print(keywords_list)
+            res_keywords = str_keywords[10:].split("; ")
+            print(res_keywords)
         print(k)
 
         # Добавляем статью в XML
@@ -89,5 +110,5 @@ for num in range(1, 107): #перебираем все страницы с ст�
 
 # Записываем XML в файл
 tree = ET.ElementTree(root)
-with open("articles.xml", "wb") as f:
+with open("articles1.xml", "wb") as f:
     tree.write(f, encoding="utf-8", xml_declaration=True)
